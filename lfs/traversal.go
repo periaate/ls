@@ -1,8 +1,10 @@
-package ls
+package lfs
+
+import "github.com/periaate/ls/files"
 
 type FSTraverser struct {
 	MaxDepth int
-	MinDpeth int
+	MinDepth int
 
 	// Selection filter, determines which paths are and aren't traversed
 	SelFilter func(*Element) bool
@@ -14,11 +16,15 @@ type FSTraverser struct {
 	Logger
 }
 
+func BaseFilter(el *Element) bool {
+	return !files.ShouldIgnore(el.Name)
+}
+
 func (t *FSTraverser) init() {
 	t.MaxDepth = 0
-	t.MinDpeth = -1
-	t.SelFilter = func(*Element) bool { return true }
-	t.ResFilter = func(*Element) bool { return true }
+	t.MinDepth = -1
+	t.SelFilter = BaseFilter
+	t.ResFilter = BaseFilter
 	t.Logger = DummyLogger{}
 }
 
@@ -34,16 +40,19 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 	temp, curr, ok := src.Iter()
 	tr.Info("starting traversal", "path", curr)
 	for ok {
+		if depth > tr.MaxDepth {
+			return
+		}
+
 		lastPath = curr
 		for _, el := range temp {
 			lastEl = el.Path
-			if el.Mask&MaskDirectory != 0 {
+			if el.Mask&files.MaskDirectory != 0 {
 				if !tr.SelFilter(el) {
 					tr.Debug("selection filtered out", "path", el.Path)
 					continue
 				}
 				seeds = append(seeds, el.Path)
-				continue
 			}
 
 			if !tr.ResFilter(el) {
@@ -51,7 +60,9 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 				continue
 			}
 
-			res = append(res, el)
+			if depth > tr.MinDepth {
+				res = append(res, el)
+			}
 		}
 
 		temp, curr, ok = src.Iter()
@@ -71,10 +82,20 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 	return
 }
 
+type Parser func(string) (res []*Element, err error)
+
+func NewFSSource(path string) *FSSource {
+	src := &FSSource{
+		Paths: []string{},
+	}
+	src.Seed([]string{path})
+	return src
+}
+
 type FSSource struct {
 	Ind    int
 	Paths  []string
-	Parser func(string) (res []*Element, err error)
+	Parser Parser
 }
 
 func (s *FSSource) Iter() (res []*Element, curr string, ok bool) {

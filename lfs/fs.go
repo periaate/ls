@@ -1,4 +1,4 @@
-package ls
+package lfs
 
 import (
 	"archive/zip"
@@ -6,14 +6,38 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/periaate/ls/files"
 )
 
-func FSParser(opts *Options) func(string) ([]*Element, error) {
-	home, _ := os.UserHomeDir()
+type FSWorker struct {
+	Sort     SortBy
+	Hide     bool
+	Archives bool
+	// Format directory paths to end with "/". Used for internal logic, turning it
+	// off will remove file|directory selection functionality
+	WebStyle bool
+	Logger
+}
 
+func NewFSWorker() *FSWorker {
+	return &FSWorker{
+		Sort:     ByNone,
+		Hide:     true,
+		Archives: false,
+		WebStyle: true,
+		Logger:   DummyLogger{},
+	}
+}
+
+func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 	return func(path string) (res []*Element, err error) {
-		path = ResolveHome(home, path)
-		if opts.Hide {
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return
+		}
+		fsw.Debug("parsing", "path", path)
+		if fsw.Hide {
 			base := filepath.Base(path)
 			if len(base) > 1 {
 				if base[0] == '.' {
@@ -24,44 +48,47 @@ func FSParser(opts *Options) func(string) ([]*Element, error) {
 
 		var finfos []fs.FileInfo
 		switch {
-		case opts.Archives && IsZipLike(path):
-			finfos, err = TraverseZip(path)
+		case fsw.Archives && IsZipLike(path):
+			finfos, err = fsw.Zip(path)
 			if err != nil {
 				return
 			}
 		default:
-			finfos, err = TraverseDir(path)
+			finfos, err = fsw.Dir(path)
 			if err != nil {
+				fsw.Error("encountered error reading a directory", "path", path, "err", err)
 				return
 			}
+
+			fsw.Debug("reading a directory", "path", path, "files", len(finfos))
 		}
 
 		for _, fi := range finfos {
 			p := filepath.Join(path, fi.Name())
-			if opts.Hide && ShouldIgnore(p) {
+			if fsw.Hide && files.ShouldIgnore(p) {
 				continue
 			}
 
 			var isDir, isArchive bool
 			isDir = fi.IsDir()
-			if opts.Archives && IsZipLike(p) {
+			if fsw.Archives && IsZipLike(p) {
 				// if archives are included, they are considered to be directories
 				isArchive = true
 				isDir = true
 			}
 
-			if isDir && opts.WebStyle {
+			if isDir && fsw.WebStyle {
 				p += "/"
 			}
 
-			el := FileParser(p)
+			el := fsw.Parse(p)
 
 			if isArchive {
-				el.Mask |= MaskDirectory
-				el.Mask &= ^MaskFile
+				el.Mask |= files.MaskDirectory
+				el.Mask &= ^files.MaskFile
 			}
 
-			switch opts.Sort {
+			switch fsw.Sort {
 			case ByMod:
 				addModT(el, fi)
 			case BySize:
@@ -69,12 +96,14 @@ func FSParser(opts *Options) func(string) ([]*Element, error) {
 			case ByCreation:
 				addCreationT(el, fi)
 			}
+
+			res = append(res, el)
 		}
 		return
 	}
 }
 
-func TraverseDir(path string) (files []fs.FileInfo, err error) {
+func (fsw *FSWorker) Dir(path string) (files []fs.FileInfo, err error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -90,7 +119,7 @@ func TraverseDir(path string) (files []fs.FileInfo, err error) {
 	return
 }
 
-func TraverseZip(path string) (files []fs.FileInfo, err error) {
+func (fsw *FSWorker) Zip(path string) (files []fs.FileInfo, err error) {
 	// TODO: tar, 7z, xz, etc., support
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -110,7 +139,7 @@ func TraverseZip(path string) (files []fs.FileInfo, err error) {
 	return
 }
 
-func FileParser(path string) *Element {
+func (fsw *FSWorker) Parse(path string) *Element {
 	isDir := path[len(path)-1] == '/'
 	path = filepath.ToSlash(path)
 	name := filepath.Base(path)
@@ -119,9 +148,9 @@ func FileParser(path string) *Element {
 		Path: path,
 	}
 
-	fi.Mask |= ExtToMaskMap[filepath.Ext(fi.Name)]
+	fi.Mask |= files.ExtToMaskMap[filepath.Ext(fi.Name)]
 	if isDir {
-		fi.Mask |= MaskDirectory
+		fi.Mask |= files.MaskDirectory
 	}
 
 	return fi

@@ -1,11 +1,15 @@
-package ls
+package lfs
 
 import (
 	"io/fs"
 	"path/filepath"
+
+	"github.com/periaate/ls/files"
 )
 
-func IsZipLike(path string) bool { return ExtToMaskMap[filepath.Ext(path)]&MaskZipLike != 0 }
+func IsZipLike(path string) bool {
+	return files.ExtToMaskMap[filepath.Ext(path)]&files.MaskZipLike != 0
+}
 
 func addModT(fi *Element, info fs.FileInfo) { fi.Vany = info.ModTime().Unix() }
 func addSize(fi *Element, info fs.FileInfo) { fi.Vany = info.Size() }

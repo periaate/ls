@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package ls
+package lfs
 
 import (
 	"io/fs"
