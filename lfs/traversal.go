@@ -2,6 +2,20 @@ package lfs
 
 import "github.com/periaate/ls/files"
 
+func GetDefault() *FSTraverser {
+	fst := NewFSTraverser()
+	fst.FSW = NewFSWorker()
+	fst.Src = NewFSSource()
+	fst.Src.Parser = fst.FSW.Parser()
+	return fst
+}
+
+func NewFSTraverser() *FSTraverser {
+	fst := &FSTraverser{}
+	fst.Init()
+	return fst
+}
+
 type FSTraverser struct {
 	MaxDepth int
 	MinDepth int
@@ -11,7 +25,8 @@ type FSTraverser struct {
 	// Result filter, determines which elments are and aren't included in result
 	ResFilter func(*Element) bool
 
-	Parser func(string) (res []*Element, err error)
+	FSW *FSWorker
+	Src *FSSource
 
 	Logger
 }
@@ -20,7 +35,7 @@ func BaseFilter(el *Element) bool {
 	return !files.ShouldIgnore(el.Name)
 }
 
-func (t *FSTraverser) init() {
+func (t *FSTraverser) Init() {
 	t.MaxDepth = 0
 	t.MinDepth = -1
 	t.SelFilter = BaseFilter
@@ -84,27 +99,43 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 
 type Parser func(string) (res []*Element, err error)
 
-func NewFSSource(path string) *FSSource {
+func NewFSSource() *FSSource {
 	src := &FSSource{
 		Paths: []string{},
 	}
-	src.Seed([]string{path})
 	return src
 }
 
+func (s *FSSource) SeedFromElements(els []*Element) {
+	for _, el := range els {
+		if el.Mask&files.MaskDirectory != 0 {
+			s.Paths = append(s.Paths, el.Path)
+		} else {
+			s.Els = append(s.Els, el)
+		}
+	}
+}
+
+// FSSource is a BFS source for traversing filesystem
 type FSSource struct {
-	Ind    int
 	Paths  []string
+	Els    []*Element
 	Parser Parser
 }
 
 func (s *FSSource) Iter() (res []*Element, curr string, ok bool) {
-	if s.Ind >= len(s.Paths) {
+	if len(s.Els) > 0 {
+		res = s.Els
+		s.Els = nil
+		return res, "FSSource inherited", true
+	}
+
+	if len(s.Paths) == 0 {
 		return nil, "", false
 	}
 
-	curr = s.Paths[s.Ind]
-	s.Ind++
+	curr = s.Paths[0]
+	s.Paths = s.Paths[1:]
 	res, err := s.Parser(curr)
 	if err != nil {
 		return nil, curr, false
@@ -113,83 +144,5 @@ func (s *FSSource) Iter() (res []*Element, curr string, ok bool) {
 }
 
 func (s *FSSource) Seed(seeds []string) {
-	s.Paths = seeds
+	s.Paths = append(s.Paths, seeds...)
 }
-
-// func Traverse(opts *Options, yfn Yield, rfn ResultFn) {
-// 	var depth int
-// 	dirPaths := opts.Args
-// 	for i, path := range dirPaths {
-// 		dirPaths[i] = ResolveHome(path)
-// 	}
-// 	slog.Debug("traversing", "dirs", dirPaths)
-
-// 	for els, ok := yfn(dirPaths); ok; els, ok = yfn(dirPaths) {
-// 		dirPaths = make([]string, 0)
-
-// 		for _, el := range els {
-// 			if el.IsDir {
-// 				dirPaths = append(dirPaths, el.Path)
-// 				if opts.OnlyFiles {
-// 					continue
-// 				}
-// 				if opts.DirOnly {
-// 					rfn(el)
-// 					continue
-// 				}
-// 			}
-
-// 			if depth < opts.FromDepth {
-// 				slog.Debug("skipping", "element", el.Path, "depth", depth)
-// 				continue
-// 			}
-
-// 			rfn(el)
-// 		}
-
-// 		depth++
-// 		if depth > opts.ToDepth {
-// 			slog.Debug("reached max depth", "depth", depth, "todepth", opts.ToDepth)
-// 			return
-// 		}
-// 	}
-// }
-
-// func GetYieldFs(opts *Options) Yield {
-// 	parser := InitFileParser(opts)
-// 	return func(paths []string) (els []*Element, ok bool) {
-// 		slog.Debug("yielding", "paths", len(paths))
-// 		if len(paths) == 0 {
-// 			return nil, false
-// 		}
-// 		for _, path := range paths {
-// 			var err error
-// 			var finfos []fs.FileInfo
-// 			switch {
-// 			case opts.Archive && IsZipLike(path):
-// 				finfos, err = TraverseZip(path)
-// 			default:
-// 				finfos, err = TraverseDir(path)
-// 			}
-// 			if err != nil {
-// 				slog.Debug("error during traversal", "err", err)
-// 				continue
-// 			}
-
-// 			for _, finfo := range finfos {
-// 				el := parser(path, finfo)
-// 				if el != nil {
-// 					els = append(els, el)
-// 				}
-// 			}
-
-// 		}
-// 		if len(els) == 0 {
-// 			slog.Debug("no elements found")
-// 			return nil, false
-// 		}
-// 		ok = true
-// 		slog.Debug("yielding", "elements", len(els))
-// 		return
-// 	}
-// }

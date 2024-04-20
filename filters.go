@@ -2,12 +2,12 @@ package ls
 
 import (
 	"log/slog"
-	"path/filepath"
 	"strings"
 
 	"github.com/periaate/common"
 	"github.com/periaate/ls/files"
 	"github.com/periaate/ls/lfs"
+	"github.com/periaate/slice"
 )
 
 func QueryAsFilter(qr ...string) Filter {
@@ -65,6 +65,12 @@ func ParseKind(args []string, inc bool) Filter {
 	return q.GetFilter()
 }
 
+func MaskFilter(mask uint32) Filter {
+	return func(e *lfs.Element) bool {
+		return e.Mask&mask != 0
+	}
+}
+
 type QueryKind [2]bool
 
 var (
@@ -101,12 +107,6 @@ func (q Query) GetFilter() (f Filter) {
 	return f
 }
 
-func MaskFilter(mask uint32) Filter {
-	return func(e *lfs.Element) bool {
-		return files.ExtToMaskMap[filepath.Ext(e.Name)]&mask != 0
-	}
-}
-
 func ExactFilter(search string) Filter {
 	return func(e *lfs.Element) bool { return search == e.Name }
 }
@@ -116,5 +116,18 @@ func SubstringFilter(search string) Filter {
 		r := strings.Contains(strings.ToLower(e.Name), search)
 		slog.Debug("substring filter", "name", e.Name, "search", search, "result", r)
 		return r
+	}
+}
+
+func SliceProcess(pattern string) Process {
+	exp := slice.NewExpression[*lfs.Element]()
+	exp.Parse(pattern)
+
+	return func(filenames []*lfs.Element) (res []*lfs.Element) {
+		res, err := exp.Eval(filenames)
+		if err != nil {
+			slog.Error("error in Slice", "error", err)
+		}
+		return
 	}
 }

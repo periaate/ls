@@ -11,10 +11,12 @@ const (
 )
 
 type Element struct {
-	Name string
-	Path string // includes name, relative path to cwd
-	Vany int64  // Unix time for mod|creation
-	Mask uint32 // Bitmask of element types, file, dir, content types, hidden, etc.
+	Name     string
+	Path     string // includes name, relative path to cwd
+	Mod      int64  // Unix time for mod
+	Creation int64  // Unix time for creation
+	Size     int64  // Size in bytes
+	Mask     uint32 // Bitmask of element types, file, dir, content types, hidden, etc.
 }
 
 type SourceIter[T, S any] interface {

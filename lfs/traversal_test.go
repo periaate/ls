@@ -8,11 +8,12 @@ import (
 func TestTraversal(t *testing.T) {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 	ftsr := &FSTraverser{}
-	ftsr.init()
+	ftsr.Init()
 
 	ftsr.Logger = slog.Default()
 
-	src := NewFSSource("./test/")
+	src := NewFSSource()
+	src.Seed([]string{"../test/"})
 	fsw := NewFSWorker()
 	fsw.Logger = slog.Default()
 	src.Parser = fsw.Parser()
