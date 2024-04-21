@@ -32,14 +32,12 @@ func NewFSWorker() *FSWorker {
 
 func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 	return func(path string) (res []*Element, err error) {
-		path, err = filepath.Abs(path)
-		if err != nil {
-			return
-		}
+		path = filepath.Clean(path)
 		fsw.Debug("parsing", "path", path)
 		if fsw.Hide {
 			base := filepath.Base(path)
-			if len(base) > 1 {
+			bc := base[len(base)-1]
+			if len(base) > 1 && !(bc == '/' || bc == '\\' || bc == '.') {
 				if base[0] == '.' {
 					return
 				}
@@ -65,7 +63,7 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 
 		for _, fi := range finfos {
 			p := filepath.Join(path, fi.Name())
-			if fsw.Hide && files.ShouldIgnore(p) {
+			if fsw.Hide && files.ShouldIgnore(fi.Name()) {
 				continue
 			}
 
@@ -88,14 +86,9 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 				el.Mask &= ^files.MaskFile
 			}
 
-			switch fsw.Sort {
-			case ByMod:
-				addModT(el, fi)
-			case BySize:
-				addSize(el, fi)
-			case ByCreation:
-				addCreationT(el, fi)
-			}
+			addModT(el, fi)
+			addSize(el, fi)
+			addCreationT(el, fi)
 
 			res = append(res, el)
 		}

@@ -111,11 +111,6 @@ func Masks(inc bool, masks ...uint32) Option {
 	}
 }
 
-func Then(els []*lfs.Element) []*lfs.Element {
-
-	return els
-}
-
 func Combine(trs ...*lfs.FSTraverser) Process {
 	return func(inp []*lfs.Element) (out []*lfs.Element) {
 		for _, tr := range trs {
@@ -154,6 +149,21 @@ func Sort(by lfs.SortBy) Process {
 			})
 		}
 		return inp
+	}
+}
+
+func TimeSlice(pattern string) Process {
+	return func(inp []*lfs.Element) (out []*lfs.Element) {
+		from, to, err := slice.ParseTimeSlice(pattern)
+		if err != nil {
+			return inp
+		}
+		for _, el := range inp {
+			if from <= el.Mod && el.Mod <= to {
+				out = append(out, el)
+			}
+		}
+		return out
 	}
 }
 
