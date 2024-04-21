@@ -3,10 +3,10 @@ package lfs
 import (
 	"archive/zip"
 	"io/fs"
-	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/periaate/common"
 	"github.com/periaate/ls/files"
 )
 
@@ -17,7 +17,7 @@ type FSWorker struct {
 	// Format directory paths to end with "/". Used for internal logic, turning it
 	// off will remove file|directory selection functionality
 	WebStyle bool
-	Logger
+	common.Logger
 }
 
 func NewFSWorker() *FSWorker {
@@ -26,7 +26,7 @@ func NewFSWorker() *FSWorker {
 		Hide:     true,
 		Archives: false,
 		WebStyle: true,
-		Logger:   DummyLogger{},
+		Logger:   common.DummyLogger{},
 	}
 }
 
@@ -97,6 +97,7 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 }
 
 func (fsw *FSWorker) Dir(path string) (files []fs.FileInfo, err error) {
+	fsw.Debug("reading directory", "path", path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func (fsw *FSWorker) Dir(path string) (files []fs.FileInfo, err error) {
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
-			slog.Debug("error reading file info", "file", entry.Name(), "error", err)
+			fsw.Debug("error reading file info", "file", entry.Name(), "error", err)
 			continue
 		}
 		files = append(files, info)

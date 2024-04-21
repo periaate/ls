@@ -46,9 +46,11 @@ func DepthPattern(pat string) Option {
 }
 
 func Search(queries ...string) Option {
+	glog.Debug("creating search query option", "len", len(queries), "queries", queries)
 	return func(opts *lfs.FSTraverser) *lfs.FSTraverser {
 		f := ParseSearch(queries)
 		if f != nil {
+			opts.Debug("registering queries", "queries", queries)
 			opts.ResFilter = common.All(true, opts.ResFilter, f)
 		}
 		return opts
@@ -58,6 +60,9 @@ func Search(queries ...string) Option {
 func LogWith(logger *slog.Logger) Option {
 	return func(opts *lfs.FSTraverser) *lfs.FSTraverser {
 		opts.Logger = logger
+		opts.Debug("LogWith option applied")
+		opts.FSW.Logger = logger
+		SetGlobalLogger(logger)
 		return opts
 	}
 }

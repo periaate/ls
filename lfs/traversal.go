@@ -1,6 +1,9 @@
 package lfs
 
-import "github.com/periaate/ls/files"
+import (
+	"github.com/periaate/common"
+	"github.com/periaate/ls/files"
+)
 
 func GetDefault() *FSTraverser {
 	fst := NewFSTraverser()
@@ -28,7 +31,7 @@ type FSTraverser struct {
 	FSW *FSWorker
 	Src *FSSource
 
-	Logger
+	common.Logger
 }
 
 func BaseFilter(el *Element) bool {
@@ -40,7 +43,7 @@ func (t *FSTraverser) Init() {
 	t.MinDepth = -1
 	t.SelFilter = BaseFilter
 	t.ResFilter = BaseFilter
-	t.Logger = DummyLogger{}
+	t.Logger = common.DummyLogger{}
 }
 
 func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Element) {
@@ -53,9 +56,10 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 
 	var seeds []string
 	temp, curr, ok := src.Iter()
-	tr.Info("starting traversal", "path", curr)
 	for ok {
-		if depth > tr.MaxDepth {
+		tr.Info("traversing", "PATH", curr, "DEPTH", depth, "ELS", len(temp))
+		if depth >= tr.MaxDepth && depth != 0 {
+			tr.Info("max depth reached", "path", curr, "depth", depth)
 			return
 		}
 
@@ -75,7 +79,7 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 				continue
 			}
 
-			if depth > tr.MinDepth {
+			if depth >= tr.MinDepth {
 				res = append(res, el)
 			}
 		}
@@ -87,9 +91,13 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 			case !ok && len(seeds) == 0:
 				return
 			case !ok && len(seeds) > 0:
+				depth++
+				if depth >= tr.MaxDepth && tr.MaxDepth != 0 {
+					tr.Info("max depth reached", "path", curr, "depth", depth)
+					return
+				}
 				src.Seed(seeds)
 				seeds = make([]string, 0)
-				depth++
 			}
 			temp, curr, ok = src.Iter()
 		}

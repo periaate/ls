@@ -27,17 +27,3 @@ type SourceIter[T, S any] interface {
 type Traverser[T, S any] interface {
 	Traverse(SourceIter[T, S]) []T
 }
-
-type Logger interface {
-	Error(msg string, args ...any)
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Debug(msg string, args ...any)
-}
-
-type DummyLogger struct{}
-
-func (DummyLogger) Error(_ string, _ ...any) {}
-func (DummyLogger) Info(_ string, _ ...any)  {}
-func (DummyLogger) Warn(_ string, _ ...any)  {}
-func (DummyLogger) Debug(_ string, _ ...any) {}

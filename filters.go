@@ -10,6 +10,12 @@ import (
 	"github.com/periaate/slice"
 )
 
+var glog common.Logger = common.DummyLogger{}
+
+func SetGlobalLogger(l common.Logger) {
+	glog = l
+}
+
 func QueryAsFilter(qr ...string) Filter {
 	scorer := common.GetScoringFunction(qr, 3)
 	return func(e *lfs.Element) bool {
@@ -20,14 +26,15 @@ func QueryAsFilter(qr ...string) Filter {
 }
 
 func ParseSearch(args []string) Filter {
-	slog.Debug("search args", "args", args)
+	glog.Debug("parsing search filter", "cnt", len(args), "args", args)
 	filters := []func(*lfs.Element) bool{}
 
 	for _, arg := range args {
 		q := Query{Include: true}
 		switch {
 		case len(arg) < 2:
-			continue
+			q.Kind = Substring
+			q.Value = arg
 		case arg[:2] == "!=":
 			arg = arg[1:]
 			q.Include = false
@@ -40,14 +47,17 @@ func ParseSearch(args []string) Filter {
 			arg = arg[1:]
 			q.Include = false
 			fallthrough
+		case arg[0] == '_':
+			fallthrough
 		default:
 			q.Kind = Substring
 			q.Value = arg
 		}
+		glog.Debug("search substring arg", "arg", q.Value, "kind", q.Kind, "include", q.Include)
 		filters = append(filters, q.GetFilter())
 	}
 
-	return common.All(true, filters...)
+	return common.Any(true, filters...)
 }
 
 func ParseKind(args []string, inc bool) Filter {
@@ -59,7 +69,7 @@ func ParseKind(args []string, inc bool) Filter {
 		q.Mask |= files.StrToMask(arg)
 	}
 	if q.Mask == 0 {
-		slog.Debug("no mask found", "args", args)
+		glog.Debug("no mask found", "args", args)
 		return NoneFilter
 	}
 	return q.GetFilter()
@@ -114,7 +124,7 @@ func SubstringFilter(search string) Filter {
 	search = strings.ToLower(search)
 	return func(e *lfs.Element) bool {
 		r := strings.Contains(strings.ToLower(e.Name), search)
-		slog.Debug("substring filter", "name", e.Name, "search", search, "result", r)
+		glog.Debug("substring filter", "name", e.Name, "search", search, "result", r)
 		return r
 	}
 }
@@ -126,7 +136,7 @@ func SliceProcess(pattern string) Process {
 	return func(filenames []*lfs.Element) (res []*lfs.Element) {
 		res, err := exp.Eval(filenames)
 		if err != nil {
-			slog.Error("error in Slice", "error", err)
+			glog.Error("error in Slice", "error", err)
 		}
 		return
 	}
