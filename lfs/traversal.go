@@ -48,10 +48,8 @@ func (t *FSTraverser) Init() {
 
 func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Element) {
 	var depth int
-	var lastEl string
-	var lastPath string
 	defer func() {
-		tr.Info("traversal finished", "depth", depth, "last path", lastPath, "last el", lastEl, "total found", len(res))
+		tr.Info("traversal finished", "depth", depth, "total found", len(res))
 	}()
 
 	var seeds []string
@@ -63,14 +61,12 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 			return
 		}
 
-		lastPath = curr
 		for _, el := range temp {
-			lastEl = el.Path
 			if el.Mask&files.MaskDirectory != 0 {
-				if !tr.SelFilter(el) {
-					tr.Debug("selection filtered out", "path", el.Path)
-					continue
-				}
+				// if !tr.SelFilter(el) {
+				// 	tr.Debug("selection filtered out", "path", el.Path)
+				// 	continue
+				// }
 				seeds = append(seeds, el.Path)
 			}
 
@@ -86,7 +82,7 @@ func (tr *FSTraverser) Traverse(src SourceIter[*Element, string]) (res []*Elemen
 
 		temp, curr, ok = src.Iter()
 		for len(temp) == 0 {
-			tr.Info("no elements received", "path", curr)
+			tr.Info("no elements received")
 			switch {
 			case !ok && len(seeds) == 0:
 				return

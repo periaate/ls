@@ -26,7 +26,7 @@ func QueryAsFilter(qr ...string) Filter {
 }
 
 func ParseSearch(args []string) Filter {
-	glog.Debug("parsing search filter", "cnt", len(args), "args", args)
+	glog.Debug("parsing search", "cnt", len(args), "args", args)
 	filters := []func(*lfs.Element) bool{}
 
 	for _, arg := range args {
@@ -53,7 +53,7 @@ func ParseSearch(args []string) Filter {
 			q.Kind = Substring
 			q.Value = arg
 		}
-		glog.Debug("search substring arg", "arg", q.Value, "kind", q.Kind, "include", q.Include)
+		glog.Debug("search parsed", "arg", q.Value, "kind", q.Kind, "include", q.Include)
 		filters = append(filters, q.GetFilter())
 	}
 
@@ -69,7 +69,7 @@ func ParseKind(args []string, inc bool) Filter {
 		q.Mask |= files.StrToMask(arg)
 	}
 	if q.Mask == 0 {
-		glog.Debug("no mask found", "args", args)
+		glog.Error("no mask found", "args", args)
 		return NoneFilter
 	}
 	return q.GetFilter()
@@ -120,6 +120,7 @@ func (q Query) GetFilter() (f Filter) {
 func ExactFilter(search string) Filter {
 	return func(e *lfs.Element) bool { return search == e.Name }
 }
+
 func SubstringFilter(search string) Filter {
 	search = strings.ToLower(search)
 	return func(e *lfs.Element) bool {

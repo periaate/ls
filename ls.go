@@ -46,7 +46,6 @@ func DepthPattern(pat string) Option {
 }
 
 func Search(queries ...string) Option {
-	glog.Debug("creating search query option", "len", len(queries), "queries", queries)
 	return func(opts *lfs.FSTraverser) *lfs.FSTraverser {
 		f := ParseSearch(queries)
 		if f != nil {
@@ -60,7 +59,6 @@ func Search(queries ...string) Option {
 func LogWith(logger *slog.Logger) Option {
 	return func(opts *lfs.FSTraverser) *lfs.FSTraverser {
 		opts.Logger = logger
-		opts.Debug("LogWith option applied")
 		opts.FSW.Logger = logger
 		SetGlobalLogger(logger)
 		return opts
@@ -171,22 +169,3 @@ func TimeSlice(pattern string) Process {
 		return out
 	}
 }
-
-/*
-ls.Do(
-	ls.Combine(
-		ls.Dir(
-			ls.Paths("./"),
-			ls.Masks(ls.Include, files.Image, files.Video),
-		),
-		ls.Dir(
-			ls.Paths("./"),
-			ls.Masks(ls.Include, files.Image, files.Video),
-			ls.Slice(0, 200),
-		),
-	),
-	ls.Sort(ls.TimeCreated),
-	ls.Slice("[:200]"),
-	ls.FuzzySearch("_p01"),
-)
-*/

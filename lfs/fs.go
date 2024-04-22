@@ -39,6 +39,7 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 			bc := base[len(base)-1]
 			if len(base) > 1 && !(bc == '/' || bc == '\\' || bc == '.') {
 				if base[0] == '.' {
+					fsw.Debug("skipping hidden file", "path", path)
 					return
 				}
 			}
@@ -58,7 +59,6 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 				return
 			}
 
-			fsw.Debug("reading a directory", "path", path, "files", len(finfos))
 		}
 
 		for _, fi := range finfos {
@@ -98,14 +98,14 @@ func (fsw *FSWorker) Parser() func(string) ([]*Element, error) {
 
 func (fsw *FSWorker) Dir(path string) (files []fs.FileInfo, err error) {
 	fsw.Debug("reading directory", "path", path)
-	entries, err := os.ReadDir(path)
+	entries, err := ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
-			fsw.Debug("error reading file info", "file", entry.Name(), "error", err)
+			fsw.Error("file info error", "file", entry.Name(), "error", err)
 			continue
 		}
 		files = append(files, info)
@@ -148,4 +148,20 @@ func (fsw *FSWorker) Parse(path string) *Element {
 	}
 
 	return fi
+}
+
+// ReadDir reads the named directory,
+// returning all its directory entries sorted by filename.
+// If an error occurs reading the directory,
+// ReadDir returns the entries it was able to read before the error,
+// along with the error.
+func ReadDir(name string) ([]os.DirEntry, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	dirs, err := f.ReadDir(-1)
+	return dirs, err
 }
